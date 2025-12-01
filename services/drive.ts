@@ -54,7 +54,13 @@ export const initGisClient = (): Promise<void> => {
                 scope: SCOPES,
                 callback: '', // defined later in requestAccessToken
                 error_callback: (error: any) => {
-                    console.error("GIS Error:", error);
+                    // Suppress console error for expected user actions
+                    if (error?.type === 'popup_closed') {
+                        console.warn("GIS: Popup closed by user");
+                    } else {
+                        console.error("GIS Error:", error);
+                    }
+                    
                     // If we have a pending request, reject it so the UI stops loading
                     if (pendingReject) {
                         pendingReject(error);

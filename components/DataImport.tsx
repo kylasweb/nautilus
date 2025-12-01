@@ -4,7 +4,7 @@ import { Shipment, DriveFile } from '../types';
 import { Card } from './ui/Card';
 import { findClosestMatch } from '../services/data';
 import { initGapiClient, initGisClient, requestAccessToken, listCsvFiles, downloadFileContent } from '../services/drive';
-import { Upload, HardDrive, RefreshCw, CheckCircle, AlertCircle, FileText, ExternalLink, Loader2 } from 'lucide-react';
+import { Upload, HardDrive, RefreshCw, CheckCircle, AlertCircle, FileText, ExternalLink, Loader2, Download } from 'lucide-react';
 
 interface DataImportProps {
   currentShipments: Shipment[];
@@ -86,7 +86,11 @@ export const DataImport: React.FC<DataImportProps> = ({ currentShipments, onImpo
           setDriveFiles(files);
           if (files.length > 0) setSelectedFileId(files[0].id);
       } catch (e: any) {
-          console.error("Auth Failed", e);
+          // Only log real errors, suppress user cancellations
+          if (e?.type !== 'popup_closed' && e?.error !== 'popup_closed_by_user') {
+               console.error("Auth Failed", e);
+          }
+          
           let msg = 'Google Authentication Failed.';
           
           if (e?.type === 'token_failed' || (e?.error && e.error.includes('invalid_request'))) {
@@ -148,20 +152,29 @@ export const DataImport: React.FC<DataImportProps> = ({ currentShipments, onImpo
     const getIndex = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
     const colMap = {
-        hbl: getIndex(['house', 'hbl', 'bol', 'bill of lading', 'b/l', 'reference', 'booking', 'shipment no']),
-        shipper: getIndex(['shipper', 'exporter', 'supplier', 'sender']),
-        consignee: getIndex(['consignee', 'importer', 'receiver']),
-        consCity: getIndex(['consignee city', 'city', 'destination city', 'pod city']),
-        consAddress: getIndex(['consignee address', 'address', 'location']),
-        notify: getIndex(['notify']),
-        receipt: getIndex(['receipt', 'origin', 'por', 'loading']),
-        port: getIndex(['arrival', 'us port', 'pod', 'discharge', 'destination']),
-        date: getIndex(['date', 'arrival', 'eta']),
-        teu: getIndex(['teu', 'volume', 'quantity', 'qty', 'containers', 'size']),
-        nvocc: getIndex(['nvocc', 'forwarder']),
-        voccCode: getIndex(['vocc code', 'carrier code', 'scac']),
-        voccName: getIndex(['vocc', 'carrier', 'shipping line'])
+        hbl: getIndex(['house bol', 'hbl', 'house bill', 'bol']),
+        shipper: getIndex(['shipper name', 'shipper']),
+        consignee: getIndex(['consignee name', 'consignee']),
+        // Specific keys first to avoid 'Shipper City' matching 'city'
+        consCity: getIndex(['consignee city', 'pod city', 'destination city']),
+        consAddress: getIndex(['consignee address']),
+        notify: getIndex(['notify name', 'notify']),
+        receipt: getIndex(['place of receipt', 'receipt', 'origin']),
+        port: getIndex(['us arrival port', 'arrival port', 'pod', 'discharge']),
+        date: getIndex(['arrival date', 'eta']), // 'arrival' keyword alone might match 'us arrival port'
+        teu: getIndex(['teu', 'volume']), // 'TEU' is explicit
+        nvocc: getIndex(['nvocc name', 'nvocc']),
+        voccCode: getIndex(['vocc code', 'scac']),
+        voccName: getIndex(['vocc name', 'carrier name'])
     };
+
+    // Fallback if VOCC Name is not found but VOCC Code is, or generic 'vocc' was used but captured code
+    // If strict matching failed, try broader search for VOCC name, ensuring it's not the same index as code
+    if (colMap.voccName === -1) {
+         // Try finding column with 'vocc' that isn't the code column
+         const potentialIndex = headers.findIndex((h, idx) => h.includes('vocc') && idx !== colMap.voccCode);
+         if (potentialIndex !== -1) colMap.voccName = potentialIndex;
+    }
 
     const missingCols: string[] = [];
     if (colMap.hbl === -1) missingCols.push('House BOL');
@@ -285,6 +298,30 @@ export const DataImport: React.FC<DataImportProps> = ({ currentShipments, onImpo
       }
   };
 
+  const handleDownloadTemplate = () => {
+    const headers = [
+      "Arrival Date", "Place Of Receipt", "Shipper Name", "Shipper Address", "Shipper City", "Shipper State", 
+      "Master Shipper Name", "Consignee Name", "Consignee Address", "Consignee City", "Master Consignee Name", 
+      "Notify Name", "Notify Address", "Notify City", "Container Number", "HS Code", "US Arrival Port", 
+      "US Inland Clearing Port", "TEU", "NVOCC Name", "VOCC Code", "Bill Type", "House BOL Number", 
+      "Master BOL Number", "Container Content", "Container Count", "Container Load"
+    ];
+    
+    const sampleRow = [
+      "28-Nov-2025", "COCHIN", "ACCELERATED FREEZE DRYING CO. LTD.", "EP/IV/513, EZHUPUNNA P.O. ALAPPUZHA DIST., KERALA, INDIA", "ALAPPUZHA", "", "TMC GLOBAL FORWARDING", "INTERNATIONAL CREATIVE FOODS INC", "200 CENTER STREET EL SEGUNDO , CA 90245 , USA", "EL SEGUNDO", "TRANSMODAL S.A.", "VANTAGE POINT SERVICES, LLC", "22513 MARINE VIEW DR.S SUITE 200 DES MOINES, WA 98198", "DES MOINES", "ONEU0923597", "03061711", "Los Angeles Seaport, California", "", "2.00", "TMC GLOBAL FORWARDING INDIA PRIVATE LIMITED", "ONEY", "House", "TBSVTMCGIND00710", "ONEYCOKF06939800", "FREEZE DRIED SHRIMP", "1", "Full"
+    ];
+
+    const toCsvRow = (row: string[]) => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",");
+    const csvContent = "data:text/csv;charset=utf-8," + [toCsvRow(headers), toCsvRow(sampleRow)].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "shipment_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Continuous Sync Logic
   useEffect(() => {
     if (isSyncEnabled && isDriveConnected && selectedFileId) {
@@ -369,7 +406,17 @@ export const DataImport: React.FC<DataImportProps> = ({ currentShipments, onImpo
         <Card title={activeTab === 'upload' ? "Import Shipping Data" : "Google Drive Sync"} subtitle={activeTab === 'upload' ? "Upload CSV files" : "Sync directly from Cloud"}>
             
             {activeTab === 'upload' && step === 'upload' && (
-                <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-12 bg-slate-50">
+                <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-12 bg-slate-50 relative">
+                    <div className="absolute top-4 right-4">
+                        <button 
+                            onClick={handleDownloadTemplate}
+                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 bg-white border border-blue-200 px-3 py-1.5 rounded-md shadow-sm transition-colors hover:bg-blue-50"
+                            title="Download CSV Template based on your data structure"
+                        >
+                            <Download className="w-3 h-3 mr-1.5" />
+                            Download Template
+                        </button>
+                    </div>
                     <Upload className="w-12 h-12 text-slate-400 mb-4" />
                     <p className="mb-2 text-sm text-slate-700 font-medium">Click to upload or drag and drop</p>
                     <input type="file" accept=".csv" onChange={handleFileUpload} disabled={isProcessing} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 max-w-xs cursor-pointer"/>
