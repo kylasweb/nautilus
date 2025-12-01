@@ -1,3 +1,4 @@
+
 import { Pool } from '@neondatabase/serverless';
 
 // --- Mock Data Generators (Duplicated from frontend logic for server-side independence) ---

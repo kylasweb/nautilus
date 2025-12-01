@@ -1,6 +1,6 @@
+
 import { Pool } from '@neondatabase/serverless';
 import { Shipment, ShipperContact } from '../types';
-import { INITIAL_SHIPMENTS, INITIAL_CONTACTS } from './data';
 
 // Connection string for direct browser access (Preview Mode)
 const NEON_DB_URL = 'postgresql://neondb_owner:npg_wa2HK5vrNZOB@ep-wild-unit-a1slxcza-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
@@ -120,15 +120,18 @@ const fetchContactsDirect = async (): Promise<ShipperContact[]> => {
 };
 
 const seedDatabaseDirect = async () => {
-    // We import the mock data generator logic here if needed, 
-    // or just return success to rely on the app using the mock data locally
-    return true; 
+    // We can't import the seed logic directly because it resides in api/seed.ts
+    // In a browser context, we rely on the API to seed. 
+    // If the API is unreachable (dev mode without local server), we can't seed automatically.
+    // However, if we really need client-side seeding, we would need to duplicate the generator logic here.
+    // For now, we assume the API endpoint handles seeding.
+    return false; 
 };
 
 // --- Exported Functions ---
 
 export const fetchShipments = async (): Promise<Shipment[]> => {
-  // Strategy: 1. Try API (Production) -> 2. Try Direct DB (Preview) -> 3. Fallback Mock
+  // Strategy: 1. Try API (Production) -> 2. Try Direct DB (Preview) -> 3. Fallback Empty
   try {
     const data = await handleResponse(await fetch('/api/shipments'));
     return data;
@@ -137,20 +140,22 @@ export const fetchShipments = async (): Promise<Shipment[]> => {
         const data = await fetchShipmentsDirect();
         return data;
     } catch (dbErr: any) {
-        // If table doesn't exist, try to create and seed
+        // If table doesn't exist, try to create and seed via API
         if (dbErr.code === '42P01') { // undefined_table
             const pool = new (Pool as any)({ connectionString: NEON_DB_URL });
             await initDB(pool);
             await (pool as any).end();
-            await seedDatabase();
+            await seedDatabase(); // Try seeding via API
+            
             // Retry fetch once
             try {
                 return await fetchShipmentsDirect();
             } catch (retryErr) {
-                return INITIAL_SHIPMENTS;
+                return [];
             }
         }
-        return INITIAL_SHIPMENTS;
+        console.error("DB Fetch Error:", dbErr);
+        return [];
     }
   }
 };
@@ -165,9 +170,10 @@ export const fetchContacts = async (): Promise<ShipperContact[]> => {
         return data;
     } catch (dbErr: any) {
          if (dbErr.code === '42P01') {
-            return INITIAL_CONTACTS;
+            return [];
          }
-        return INITIAL_CONTACTS;
+        console.error("DB Contact Fetch Error:", dbErr);
+        return [];
     }
   }
 };
@@ -177,11 +183,7 @@ export const seedDatabase = async () => {
     await handleResponse(await fetch('/api/seed'));
     return true;
   } catch (apiErr) {
-    try {
-        await seedDatabaseDirect();
-        return true;
-    } catch (dbErr) {
-        return false;
-    }
+    console.error("Seeding failed: API unreachable");
+    return false;
   }
 };

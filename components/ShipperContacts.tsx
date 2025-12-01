@@ -14,6 +14,7 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<ShipperContact | null>(null);
+  const [formErrors, setFormErrors] = useState<{ latitude?: string; longitude?: string }>({});
 
   const canEdit = hasPermission(['Admin', 'Analyst']);
 
@@ -25,17 +26,52 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
   const startEdit = (contact: ShipperContact) => {
     if (!canEdit) return;
     setEditingContact({ ...contact }); // Clone to avoid direct mutation
+    setFormErrors({});
     setIsEditModalOpen(true);
   };
 
   const handleSave = () => {
     if (editingContact) {
+      // Validation
+      const errors: { latitude?: string; longitude?: string } = {};
+      let isValid = true;
+
+      // Validate Latitude
+      if (editingContact.latitude !== undefined && editingContact.latitude !== null && String(editingContact.latitude) !== '') {
+          const lat = Number(editingContact.latitude);
+          if (isNaN(lat)) {
+              errors.latitude = "Must be a number";
+              isValid = false;
+          } else if (lat < -90 || lat > 90) {
+              errors.latitude = "Range: -90 to 90";
+              isValid = false;
+          }
+      }
+
+      // Validate Longitude
+      if (editingContact.longitude !== undefined && editingContact.longitude !== null && String(editingContact.longitude) !== '') {
+          const lng = Number(editingContact.longitude);
+          if (isNaN(lng)) {
+              errors.longitude = "Must be a number";
+              isValid = false;
+          } else if (lng < -180 || lng > 180) {
+              errors.longitude = "Range: -180 to 180";
+              isValid = false;
+          }
+      }
+
+      if (!isValid) {
+          setFormErrors(errors);
+          return;
+      }
+
       onUpdateContact({
         ...editingContact,
         lastUpdated: new Date().toISOString()
       });
       setIsEditModalOpen(false);
       setEditingContact(null);
+      setFormErrors({});
     }
   };
 
@@ -43,6 +79,11 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
     if (editingContact) {
       // @ts-ignore
       setEditingContact({ ...editingContact, [field]: value });
+      
+      // Clear error for the field being edited
+      if (field === 'latitude' || field === 'longitude') {
+          setFormErrors(prev => ({ ...prev, [field]: undefined }));
+      }
     }
   };
 
@@ -248,8 +289,11 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
                                     value={editingContact.latitude || ''} 
                                     onChange={(e) => handleChange('latitude', e.target.value)}
                                     placeholder="e.g. 28.6139"
-                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                                        formErrors.latitude ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    }`} 
                                 />
+                                {formErrors.latitude && <p className="mt-1 text-xs text-red-600">{formErrors.latitude}</p>}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Longitude</label>
@@ -259,8 +303,11 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
                                     value={editingContact.longitude || ''} 
                                     onChange={(e) => handleChange('longitude', e.target.value)}
                                     placeholder="e.g. 77.2090"
-                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                                        formErrors.longitude ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    }`} 
                                 />
+                                {formErrors.longitude && <p className="mt-1 text-xs text-red-600">{formErrors.longitude}</p>}
                             </div>
                         </div>
 
