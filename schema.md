@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS shipper_contacts (
     contact_number TEXT,
     address TEXT,
     city TEXT,
+    latitude DECIMAL(10, 7),
+    longitude DECIMAL(10, 7),
     pan_number TEXT,
     cin_number TEXT,
     customer_type TEXT,

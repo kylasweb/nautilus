@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Shipment, ShipperContact } from '../types';
 import { Card } from './ui/Card';
@@ -16,6 +17,8 @@ interface MapPoint {
   lat: number;
   lng: number;
   count?: number;
+  email?: string;
+  contactNumber?: string;
 }
 
 declare global {
@@ -85,15 +88,26 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
 
     if (viewMode === 'shippers') {
       contacts.forEach(c => {
-        const coords = CITY_COORDINATES[c.city || ''] || CITY_COORDINATES['Shanghai']; 
-        if (coords) {
+        // Use precise coordinates if available, otherwise fall back to City lookup
+        let lat = c.latitude;
+        let lng = c.longitude;
+        
+        if (!lat || !lng) {
+            const cityCoords = CITY_COORDINATES[c.city || ''] || CITY_COORDINATES['Shanghai'];
+            lat = cityCoords?.lat;
+            lng = cityCoords?.lng;
+        }
+
+        if (lat && lng) {
           dataPoints.push({
             id: c.shipperName,
             name: c.shipperName,
             city: c.city || 'Unknown City',
             address: c.address,
-            lat: coords.lat,
-            lng: coords.lng
+            lat: lat,
+            lng: lng,
+            email: c.email,
+            contactNumber: c.contactNumber
           });
         }
       });
@@ -172,12 +186,23 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
     points.forEach(point => {
         // Basic popup HTML
         const popupContent = `
-            <div style="padding: 10px; font-family: sans-serif; min-width: 200px; text-align: left;">
+            <div style="padding: 10px; font-family: sans-serif; min-width: 220px; text-align: left;">
                 <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #1e3a8a;">${point.name}</div>
                 <div style="font-size: 12px; color: #334155; margin-bottom: 4px;">
-                    <strong>Address:</strong> ${point.address}
+                    <strong>Address:</strong> ${point.address || 'N/A'}
                 </div>
-                <div style="font-size: 12px; color: #475569;">${point.city}</div>
+                <div style="font-size: 12px; color: #475569; margin-bottom: 4px;">${point.city}</div>
+                
+                ${point.contactNumber ? `
+                <div style="font-size: 12px; color: #334155; margin-bottom: 2px;">
+                    <strong>Tel:</strong> ${point.contactNumber}
+                </div>` : ''}
+                
+                ${point.email ? `
+                <div style="font-size: 12px; color: #334155;">
+                    <strong>Email:</strong> ${point.email}
+                </div>` : ''}
+
                 ${point.count ? `<div style="font-size: 12px; color: #16a34a; font-weight: bold; margin-top: 5px;">${point.count} Shipments</div>` : ''}
             </div>
         `;

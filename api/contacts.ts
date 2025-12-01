@@ -20,6 +20,8 @@ export default async function handler(req: any, res: any) {
         contactNumber: row.contact_number || '',
         address: row.address || '',
         city: row.city || '',
+        latitude: row.latitude ? Number(row.latitude) : undefined,
+        longitude: row.longitude ? Number(row.longitude) : undefined,
         panNumber: row.pan_number || '',
         cinNumber: row.cin_number || '',
         customerType: row.customer_type || '',
@@ -37,14 +39,16 @@ export default async function handler(req: any, res: any) {
       
       const query = `
         INSERT INTO shipper_contacts (
-          shipper_name, email, contact_number, address, city, pan_number, 
-          cin_number, customer_type, company_size, contact_person_name, designation, last_updated
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+          shipper_name, email, contact_number, address, city, latitude, longitude,
+          pan_number, cin_number, customer_type, company_size, contact_person_name, designation, last_updated
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
         ON CONFLICT (shipper_name) DO UPDATE SET
           email = EXCLUDED.email,
           contact_number = EXCLUDED.contact_number,
           address = EXCLUDED.address,
           city = EXCLUDED.city,
+          latitude = EXCLUDED.latitude,
+          longitude = EXCLUDED.longitude,
           pan_number = EXCLUDED.pan_number,
           cin_number = EXCLUDED.cin_number,
           customer_type = EXCLUDED.customer_type,
@@ -56,7 +60,8 @@ export default async function handler(req: any, res: any) {
 
       await pool.query(query, [
         contact.shipperName, contact.email, contact.contactNumber, 
-        contact.address, contact.city, contact.panNumber, contact.cinNumber,
+        contact.address, contact.city, contact.latitude || null, contact.longitude || null,
+        contact.panNumber, contact.cinNumber,
         contact.customerType, contact.companySize, contact.contactPersonName, 
         contact.designation
       ]);

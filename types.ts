@@ -24,6 +24,8 @@ export interface ShipperContact {
   contactNumber: string; // Mobile Number
   address: string;
   city?: string; // Added for Map View
+  latitude?: number; // Added for precise mapping
+  longitude?: number; // Added for precise mapping
   panNumber: string;
   cinNumber: string;
   customerType: CustomerType;

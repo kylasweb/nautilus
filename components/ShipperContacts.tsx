@@ -205,14 +205,54 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
                             />
                         </div>
 
+                        {/* Location Section */}
+                        <div className="col-span-1 md:col-span-2 mt-2">
+                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Location & Geo-Coordinates</h4>
+                        </div>
+
                         <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700">Address</label>
+                            <label className="block text-sm font-medium text-gray-700">Full Address</label>
                             <textarea 
                                 value={editingContact.address} 
                                 onChange={(e) => handleChange('address', e.target.value)}
                                 rows={2}
                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
                             />
+                        </div>
+
+                        <div>
+                             <label className="block text-sm font-medium text-gray-700">City</label>
+                             <input 
+                                type="text" 
+                                value={editingContact.city || ''} 
+                                onChange={(e) => handleChange('city', e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Latitude</label>
+                                <input 
+                                    type="number" 
+                                    step="any"
+                                    value={editingContact.latitude || ''} 
+                                    onChange={(e) => handleChange('latitude', e.target.value)}
+                                    placeholder="e.g. 28.6139"
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Longitude</label>
+                                <input 
+                                    type="number" 
+                                    step="any"
+                                    value={editingContact.longitude || ''} 
+                                    onChange={(e) => handleChange('longitude', e.target.value)}
+                                    placeholder="e.g. 77.2090"
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+                                />
+                            </div>
                         </div>
 
                         {/* Contact Person Details */}
