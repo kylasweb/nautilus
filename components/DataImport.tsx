@@ -249,26 +249,49 @@ export const DataImport: React.FC<DataImportProps> = ({ currentShipments, onImpo
 
     setValidRecords(tempValid);
     setConflicts(tempConflicts);
-    setStats({ added: 0, rejected: rejectedCount, flagged: tempConflicts.length });
     setIsProcessing(false);
     
     if (source === 'drive') {
         if (tempValid.length > 0) {
             setLastSynced(new Date().toLocaleString());
+            const hasConflicts = tempConflicts.length > 0;
             setSyncHistory(prev => [{
                 id: Date.now().toString(),
                 timestamp: new Date().toLocaleTimeString(),
-                status: 'success',
+                status: hasConflicts ? 'error' : 'success',
                 records: tempValid.length,
-                message: `Synced ${tempValid.length} records (${rejectedCount} duplicates)`
+                message: hasConflicts 
+                    ? `Pending Review: ${tempValid.length} records found with ${tempConflicts.length} conflicts`
+                    : `Synced ${tempValid.length} records (${rejectedCount} duplicates)`
+            }, ...prev]);
+        } else if (rejectedCount > 0) {
+             setLastSynced(new Date().toLocaleString());
+             setSyncHistory(prev => [{
+                id: Date.now().toString(),
+                timestamp: new Date().toLocaleTimeString(),
+                status: 'success',
+                records: 0,
+                message: `No new data. ${rejectedCount} duplicates skipped.`
             }, ...prev]);
         }
     }
 
     if (tempConflicts.length > 0) {
+        setStats({ added: 0, rejected: rejectedCount, flagged: tempConflicts.length });
         setStep('review');
     } else if (tempValid.length > 0) {
+        // Automatically save if valid records exist and no conflicts
+        onImport(tempValid);
+        setStats({ added: tempValid.length, rejected: rejectedCount, flagged: 0 });
         setStep('complete'); 
+    } else if (rejectedCount > 0) {
+        // No new valid records, but duplicates were processed
+        setStats({ added: 0, rejected: rejectedCount, flagged: 0 });
+        setStep('complete');
+    } else {
+        if (source === 'upload') {
+            setImportLog([{ type: 'info', msg: 'No valid shipment records found in file.' }]);
+        }
     }
   };
 
@@ -509,7 +532,7 @@ export const DataImport: React.FC<DataImportProps> = ({ currentShipments, onImpo
                                     {syncHistory.map(log => (
                                         <div key={log.id} className="bg-white p-3 rounded border border-slate-200 shadow-sm">
                                             <div className="flex justify-between items-start mb-1">
-                                                <span className={`text-xs font-bold ${log.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{log.status === 'success' ? 'Success' : 'Failed'}</span>
+                                                <span className={`text-xs font-bold ${log.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{log.status === 'success' ? 'Success' : 'Attention'}</span>
                                                 <span className="text-[10px] text-slate-400">{log.timestamp}</span>
                                             </div>
                                             <p className="text-xs text-slate-600">{log.message}</p>
