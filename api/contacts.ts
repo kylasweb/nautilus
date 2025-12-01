@@ -1,4 +1,3 @@
-
 import { Pool } from '@neondatabase/serverless';
 
 export default async function handler(req: any, res: any) {
@@ -8,11 +7,12 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'Database connection string not configured' });
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = new (Pool as any)({ connectionString });
 
   try {
     if (req.method === 'GET') {
-      const { rows } = await pool.query('SELECT * FROM shipper_contacts');
+      const result = await (pool as any).query('SELECT * FROM shipper_contacts');
+      const rows = (result as any).rows;
       
       const contacts = rows.map((row: any) => ({
         shipperName: row.shipper_name,
@@ -58,7 +58,7 @@ export default async function handler(req: any, res: any) {
           last_updated = NOW()
       `;
 
-      await pool.query(query, [
+      await (pool as any).query(query, [
         contact.shipperName, contact.email, contact.contactNumber, 
         contact.address, contact.city, contact.latitude || null, contact.longitude || null,
         contact.panNumber, contact.cinNumber,

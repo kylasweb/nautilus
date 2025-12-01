@@ -1,4 +1,3 @@
-
 import { Pool } from '@neondatabase/serverless';
 
 export default async function handler(req: any, res: any) {
@@ -9,11 +8,12 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'Database connection string not configured' });
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = new (Pool as any)({ connectionString });
 
   try {
     if (req.method === 'GET') {
-      const { rows } = await pool.query('SELECT * FROM shipments ORDER BY arrival_date DESC LIMIT 1000');
+      const result = await (pool as any).query('SELECT * FROM shipments ORDER BY arrival_date DESC LIMIT 1000');
+      const rows = (result as any).rows;
       
       // Map to camelCase for frontend
       const shipments = rows.map((row: any) => ({

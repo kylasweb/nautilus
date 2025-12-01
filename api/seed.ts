@@ -1,4 +1,3 @@
-
 import { Pool } from '@neondatabase/serverless';
 
 // --- Mock Data Generators (Duplicated from frontend logic for server-side independence) ---
@@ -73,15 +72,15 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'Database connection string not configured' });
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = new (Pool as any)({ connectionString });
 
   try {
       const shipments = generateMockShipments(450);
       const contacts = generateMockContacts();
 
-      const client = await pool.connect();
+      const client = await (pool as any).connect();
       try {
-        await client.query('BEGIN');
+        await (client as any).query('BEGIN');
 
         // Seed Shipments
         const shipmentQuery = `
@@ -94,7 +93,7 @@ export default async function handler(req: any, res: any) {
         `;
 
         for (const s of shipments) {
-            await client.query(shipmentQuery, [
+            await (client as any).query(shipmentQuery, [
             s.houseBolNumber, s.shipperName, s.consigneeName, s.consigneeCity,
             s.consigneeAddress, s.notifyParty, s.placeOfReceipt, s.usArrivalPort,
             s.arrivalDate, s.teu, s.nvoccName, s.voccCode, s.voccName
@@ -111,20 +110,20 @@ export default async function handler(req: any, res: any) {
         `;
 
         for (const c of contacts) {
-            await client.query(contactQuery, [
+            await (client as any).query(contactQuery, [
             c.shipperName, c.email, c.contactNumber, c.address, c.city,
             c.panNumber, c.cinNumber, c.customerType, c.companySize,
             c.contactPersonName, c.designation
             ]);
         }
 
-        await client.query('COMMIT');
+        await (client as any).query('COMMIT');
         return res.status(200).json({ message: 'Database seeded successfully', count: shipments.length });
       } catch (e) {
-          await client.query('ROLLBACK');
+          await (client as any).query('ROLLBACK');
           throw e;
       } finally {
-          client.release();
+          (client as any).release();
       }
   } catch (error) {
     console.error('Seeding error:', error);
