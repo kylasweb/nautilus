@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ShipperContact } from '../types';
 import { Card } from './ui/Card';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ShipperContactsProps {
   contacts: ShipperContact[];
@@ -9,9 +10,12 @@ interface ShipperContactsProps {
 }
 
 export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUpdateContact }) => {
+  const { hasPermission } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<ShipperContact | null>(null);
+
+  const canEdit = hasPermission(['Admin', 'Analyst']);
 
   const filteredContacts = contacts.filter(c => 
     c.shipperName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -19,6 +23,7 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
   );
 
   const startEdit = (contact: ShipperContact) => {
+    if (!canEdit) return;
     setEditingContact({ ...contact }); // Clone to avoid direct mutation
     setIsEditModalOpen(true);
   };
@@ -117,12 +122,16 @@ export const ShipperContacts: React.FC<ShipperContactsProps> = ({ contacts, onUp
                      )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => startEdit(contact)}
-                      className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md"
-                    >
-                      Edit
-                    </button>
+                    {canEdit ? (
+                        <button 
+                            onClick={() => startEdit(contact)}
+                            className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md"
+                        >
+                            Edit
+                        </button>
+                    ) : (
+                        <span className="text-slate-400 text-xs italic">View Only</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -1,18 +1,21 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ViewState, Shipment, ShipperContact, DateRange 
+  ViewState, Shipment, ShipperContact, DateRange, UserRole
 } from './types';
 import { 
   getUniqueShippers 
 } from './services/data';
 import { fetchShipments, fetchContacts, seedDatabase } from './services/db';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Dashboard } from './components/Dashboard';
 import { TradeLaneAnalysis } from './components/TradeLaneAnalysis';
 import { ShipperContacts } from './components/ShipperContacts';
 import { DataImport } from './components/DataImport';
 import { PreBuiltReports } from './components/PreBuiltReports';
 import { MapView } from './components/MapView';
+import { LandingPage } from './components/LandingPage';
+import { Login } from './components/Login';
 
 // --- Sidebar Icon Components ---
 const DashboardIcon = () => <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>;
@@ -22,7 +25,9 @@ const MapIcon = () => <svg className="w-5 h-5 mr-3" fill="none" stroke="currentC
 const ContactIcon = () => <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
 const UploadIcon = () => <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" /></svg>;
 
-const App: React.FC = () => {
+const MainApp: React.FC = () => {
+  const { user, logout, hasPermission } = useAuth();
+  
   // --- App State ---
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,15 +47,12 @@ const App: React.FC = () => {
   // --- Initialization ---
   useEffect(() => {
     const initData = async () => {
-      // Don't set isLoading(true) here as it's default true, and we want to start fetching immediately
       try {
         let dbShipments = await fetchShipments();
         let dbContacts = await fetchContacts();
 
-        // If DB is empty, seed it
         if (dbShipments.length === 0) {
           await seedDatabase();
-          // Fetch again after seeding
           dbShipments = await fetchShipments();
           dbContacts = await fetchContacts();
         }
@@ -58,7 +60,6 @@ const App: React.FC = () => {
         setShipments(dbShipments);
         setContacts(dbContacts);
 
-        // Set initial selection
         if (dbShipments.length > 0) {
            const unique = getUniqueShippers(dbShipments);
            if (unique.length > 0) {
@@ -85,7 +86,6 @@ const App: React.FC = () => {
   }, [shipperList, shipperSearch]);
 
   // --- Handlers ---
-
   const handleShipperSelect = (name: string) => {
     setSelectedShipper(name);
     setShipperSearch(name);
@@ -93,11 +93,7 @@ const App: React.FC = () => {
   };
 
   const handleDataImport = (newBatch: Shipment[]) => {
-    // Note: In a real app with DB, we would post this to the backend API.
-    // For this hybrid demo, we update local state to reflect changes immediately
-    // while acknowledging that sync logic would live in services/db.ts
     setShipments(prev => [...prev, ...newBatch]);
-
     const existingShipperNames = new Set(contacts.map(c => c.shipperName));
     const newContacts: ShipperContact[] = [];
 
@@ -129,18 +125,25 @@ const App: React.FC = () => {
     setContacts(prev => prev.map(c => c.shipperName === updatedContact.shipperName ? updatedContact : c));
   };
 
-  // --- Render ---
-
   return (
     <div className="min-h-screen flex bg-slate-50">
       
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col fixed h-full z-10">
+      <aside className="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col fixed h-full z-10 transition-all duration-300">
         <div className="h-16 flex items-center px-6 bg-slate-950 font-bold text-white tracking-wider">
           <span className="text-blue-500 mr-2">NAUTILUS</span> INTEL
         </div>
         
-        <nav className="flex-1 px-4 py-6 space-y-1">
+        {/* User Profile Mini */}
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center">
+            <img src={user?.avatar} alt={user?.name} className="w-8 h-8 rounded-full mr-3" />
+            <div className="overflow-hidden">
+                <div className="text-sm font-medium text-white truncate">{user?.name}</div>
+                <div className="text-xs text-slate-500 truncate">{user?.role}</div>
+            </div>
+        </div>
+        
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
           <p className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Analysis</p>
           <button 
             onClick={() => setCurrentView(ViewState.DASHBOARD)}
@@ -169,22 +172,41 @@ const App: React.FC = () => {
 
           <div className="pt-4 pb-2">
             <p className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Data Management</p>
-            <button 
-              onClick={() => setCurrentView(ViewState.CONTACTS)}
-              className={`w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${currentView === ViewState.CONTACTS ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
-            >
-              <ContactIcon /> Shipper Contacts
-            </button>
-            <button 
-              onClick={() => setCurrentView(ViewState.IMPORT)}
-              className={`w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${currentView === ViewState.IMPORT ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
-            >
-              <UploadIcon /> Data Import
-            </button>
+            
+            {/* Permission Check: Viewers cannot see Contacts */}
+            {hasPermission(['Admin', 'Analyst']) && (
+                <button 
+                onClick={() => setCurrentView(ViewState.CONTACTS)}
+                className={`w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${currentView === ViewState.CONTACTS ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                >
+                <ContactIcon /> Shipper Contacts
+                </button>
+            )}
+
+            {/* Permission Check: Only Admins can Import */}
+            {hasPermission(['Admin']) && (
+                <button 
+                onClick={() => setCurrentView(ViewState.IMPORT)}
+                className={`w-full flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${currentView === ViewState.IMPORT ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                >
+                <UploadIcon /> Data Import
+                </button>
+            )}
+            
+            {!hasPermission(['Admin', 'Analyst']) && !hasPermission(['Admin']) && (
+                <div className="px-2 text-xs text-slate-600 italic mt-2">
+                    Read-only access enabled.
+                </div>
+            )}
           </div>
         </nav>
 
         <div className="p-4 bg-slate-950 text-xs text-slate-500 border-t border-slate-900">
+           <button onClick={logout} className="w-full mb-4 text-left text-slate-400 hover:text-white flex items-center">
+             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+             Sign Out
+           </button>
+
           <div className="flex justify-between items-center mb-2">
             <span>System Status:</span>
             <span className={`flex items-center ${isLoading ? "text-yellow-500" : "text-green-500"}`}>
@@ -205,7 +227,6 @@ const App: React.FC = () => {
             </span>
           </div>
           <p>Records: <span className="text-slate-300">{shipments.length}</span></p>
-          <p className="mt-1">Source: <span className="text-slate-300">NeonDB (Serverless)</span></p>
         </div>
       </aside>
 
@@ -339,20 +360,29 @@ const App: React.FC = () => {
             <MapView shipments={shipments} contacts={contacts} />
           )}
 
+          {/* Middleware Logic: Redirect or Show Warning if accessing unauthorized view via state */}
           {currentView === ViewState.CONTACTS && (
-             <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-slate-800">Shipper Contact Management</h2>
-                <p className="text-slate-500">Maintain up-to-date contact information for compliance.</p>
-                <ShipperContacts contacts={contacts} onUpdateContact={handleContactUpdate} />
-             </div>
+             hasPermission(['Admin', 'Analyst']) ? (
+               <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-slate-800">Shipper Contact Management</h2>
+                  <p className="text-slate-500">Maintain up-to-date contact information for compliance.</p>
+                  <ShipperContacts contacts={contacts} onUpdateContact={handleContactUpdate} />
+               </div>
+             ) : (
+                <div className="p-4 bg-red-100 text-red-700 rounded-lg">Access Denied: You do not have permission to view this page.</div>
+             )
           )}
 
           {currentView === ViewState.IMPORT && (
-             <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-slate-800">Data Import</h2>
-                <p className="text-slate-500">Upload new shipping manifests. Duplicates will be rejected automatically based on House BOL.</p>
-                <DataImport currentShipments={shipments} onImport={handleDataImport} />
-             </div>
+             hasPermission(['Admin']) ? (
+                <div className="space-y-4">
+                    <h2 className="text-2xl font-bold text-slate-800">Data Import</h2>
+                    <p className="text-slate-500">Upload new shipping manifests. Duplicates will be rejected automatically based on House BOL.</p>
+                    <DataImport currentShipments={shipments} onImport={handleDataImport} />
+                </div>
+             ) : (
+                <div className="p-4 bg-red-100 text-red-700 rounded-lg">Access Denied: You do not have permission to view this page.</div>
+             )
           )}
         </div>
       </main>
@@ -360,4 +390,26 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+const Root: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
+
+  // Router Logic (State Based)
+  if (isAuthenticated) {
+    return <MainApp />;
+  }
+
+  if (showLogin) {
+    return <Login onBack={() => setShowLogin(false)} />;
+  }
+
+  return <LandingPage onLoginClick={() => setShowLogin(true)} />;
+};
+
+export default function AppWrapper() {
+  return (
+    <AuthProvider>
+      <Root />
+    </AuthProvider>
+  );
+}

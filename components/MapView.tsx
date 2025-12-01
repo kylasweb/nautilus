@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Shipment, ShipperContact } from '../types';
 import { Card } from './ui/Card';
@@ -36,25 +35,27 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
-  // 1. Script Loading Logic
+  // 1. Script Loading Logic with Polling
   useEffect(() => {
     const scriptId = 'mappls-sdk-script';
-    
-    // Check if script already exists
-    if (document.getElementById(scriptId)) {
-        if (window.mappls) {
+    let checkInterval: any;
+
+    const checkLibrary = (retries = 20) => {
+        if (window.mappls && window.mappls.Map) {
             setScriptLoaded(true);
-        } else {
-            // Script tag exists but window.mappls might not be ready
-            const interval = setInterval(() => {
-                if (window.mappls) {
-                    setScriptLoaded(true);
-                    clearInterval(interval);
-                }
-            }, 500);
-            return () => clearInterval(interval);
+            return;
         }
-        return;
+        if (retries <= 0) {
+            setLoadError(true);
+            return;
+        }
+        checkInterval = setTimeout(() => checkLibrary(retries - 1), 500);
+    };
+    
+    // Check if script already exists (e.g. from previous mount)
+    if (document.getElementById(scriptId)) {
+        checkLibrary();
+        return () => clearTimeout(checkInterval);
     }
 
     // Inject Script
@@ -65,14 +66,8 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
     script.defer = true;
     
     script.onload = () => {
-        // Mappls sometimes needs a tick even after onload
-        setTimeout(() => {
-            if (window.mappls) {
-                setScriptLoaded(true);
-            } else {
-                setLoadError(true);
-            }
-        }, 500);
+        // Start polling for the global object once script loads
+        checkLibrary();
     };
     
     script.onerror = () => {
@@ -80,6 +75,8 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
     };
 
     document.body.appendChild(script);
+
+    return () => clearTimeout(checkInterval);
   }, []);
 
   // 2. Prepare Data Points
@@ -159,28 +156,40 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
         }
     } catch (e) {
         console.error('Error initializing Mappls map:', e);
-        setLoadError(true);
+        // Don't set global load error here if it's a transient init error, just log it
     }
 
+    // Cleanup: We intentionally DO NOT remove the map instance on unmount for this specific library
+    // because standard Mappls SDKs can struggle with rapid mount/unmount cycles in SPAs.
+    // Instead we check if instance exists at the top of this effect.
+    // If strict mode is causing issues, this singleton pattern helps.
+    
     return () => {
+        // Optional: Perform specific marker cleanup if needed, but keep map instance if possible
+        // or ensure full teardown if resources allow.
+        // For robustness in this specific demo:
         if (mapInstanceRef.current && mapInstanceRef.current.remove) {
-            try {
-                mapInstanceRef.current.remove();
-            } catch(e) { /* ignore cleanup error */ }
-            mapInstanceRef.current = null;
+           try {
+             mapInstanceRef.current.remove();
+           } catch(e) {}
+           mapInstanceRef.current = null;
         }
-    }
+    };
   }, [scriptLoaded]);
 
   // 4. Update Markers
   useEffect(() => {
     if (!mapInstanceRef.current || !window.mappls) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => {
-      if (marker && marker.remove) marker.remove();
-    });
-    markersRef.current = [];
+    // Clear existing markers if we have references
+    if (markersRef.current.length > 0) {
+        try {
+            markersRef.current.forEach(marker => {
+                if (marker && marker.remove) marker.remove();
+            });
+        } catch (e) { console.warn("Marker removal error", e); }
+        markersRef.current = [];
+    }
 
     // Add new markers
     points.forEach(point => {
@@ -263,8 +272,14 @@ export const MapView: React.FC<MapViewProps> = ({ shipments, contacts }) => {
                      <svg className="w-10 h-10 text-red-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                      <p className="text-slate-800 font-medium">Map failed to load</p>
                      <p className="text-slate-500 text-xs mt-1 max-w-xs text-center">
-                        Please check if the API Key is valid and the domain is whitelisted in your Mappls Dashboard.
+                        Please check if the API Key is valid and the domain <strong>swen-nautilus.vercel.app</strong> is whitelisted in your Mappls Dashboard.
                      </p>
+                     <button 
+                        onClick={() => window.location.reload()}
+                        className="mt-4 px-3 py-1 bg-white border border-slate-300 rounded text-xs text-slate-600 hover:bg-slate-50"
+                     >
+                        Reload Page
+                     </button>
                  </div>
              )}
         </div>

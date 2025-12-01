@@ -70,3 +70,23 @@ export interface AggregatedCarrier {
   topPort?: string;
   topReceipt?: string;
 }
+
+// --- Auth & RBAC Types ---
+
+export type UserRole = 'Admin' | 'Analyst' | 'Viewer';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+}
+
+export interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  hasPermission: (requiredRole: UserRole[]) => boolean;
+}
