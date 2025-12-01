@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ViewState, Shipment, ShipperContact, DateRange, UserRole
@@ -38,7 +37,17 @@ const MainApp: React.FC = () => {
 
   // Filter State (Global for Dashboard)
   const [selectedShipper, setSelectedShipper] = useState<string>('');
-  const [globalDateRange, setGlobalDateRange] = useState<DateRange>({ from: '2023-01-01', to: '2024-12-31' });
+  
+  // Calculate default Date Range (Today - 60 days)
+  const [globalDateRange, setGlobalDateRange] = useState<DateRange>(() => {
+    const today = new Date();
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(today.getDate() - 60);
+    return {
+      from: sixtyDaysAgo.toISOString().split('T')[0],
+      to: today.toISOString().split('T')[0]
+    };
+  });
 
   // Autocomplete State
   const [shipperSearch, setShipperSearch] = useState('');
@@ -52,9 +61,10 @@ const MainApp: React.FC = () => {
         let dbContacts = await fetchContacts();
 
         if (dbShipments.length === 0) {
-          await seedDatabase();
-          dbShipments = await fetchShipments();
-          dbContacts = await fetchContacts();
+          // In a real app we don't auto-seed on load typically, but kept logic structure if needed
+          // await seedDatabase();
+          // dbShipments = await fetchShipments();
+          // dbContacts = await fetchContacts();
         }
 
         setShipments(dbShipments);

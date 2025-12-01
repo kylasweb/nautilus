@@ -66,7 +66,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ shipments, selectedShipper
         
         {/* Report 1: Major Consignees */}
         <Card title="Major Consignees" subtitle="Top 10 recipients by TEU Volume">
-          <div className="h-80 w-full">
+          <div className="h-80 w-full" style={{ minWidth: 0, minHeight: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={consigneeData} margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
@@ -127,7 +127,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ shipments, selectedShipper
 
         {/* Report 3: Carriers */}
         <Card title="Carrier Analysis" subtitle="Top NVOCCs vs VOCCs Share" className="lg:col-span-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-80">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-80" style={{ minWidth: 0, minHeight: 0 }}>
             {/* Left: NVOCC Bar Chart */}
             <div className="h-full">
                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">Top NVOCCs (Volume)</h4>
@@ -142,18 +142,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ shipments, selectedShipper
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-white border border-slate-200 p-3 shadow-lg rounded-md text-xs z-10 relative">
-                            <p className="font-bold text-slate-800 mb-2">{data.name}</p>
-                            <p className="text-blue-600 font-bold mb-2 text-sm">{data.teu} TEU</p>
+                          <div className="bg-white border border-slate-200 p-4 shadow-xl rounded-lg text-xs z-10 relative min-w-[200px]">
+                            <p className="font-bold text-slate-900 mb-2 text-sm">{data.name}</p>
+                            <p className="text-blue-600 font-bold mb-3 text-base border-b border-slate-100 pb-2">{data.teu} TEU</p>
                             
-                            <div className="border-t border-slate-100 pt-2 mt-1 space-y-1">
-                                <div className="flex justify-between items-start">
-                                    <span className="text-slate-500 mr-2">Top Port:</span>
-                                    <span className="text-slate-800 font-medium text-right max-w-[120px]">{data.topPort}</span>
+                            <div className="space-y-2">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-wide">Top Arrival Port</span>
+                                    <span className="text-slate-800 font-semibold bg-slate-50 px-2 py-1 rounded border border-slate-100 mt-0.5 inline-block">{data.topPort}</span>
                                 </div>
-                                <div className="flex justify-between items-start">
-                                    <span className="text-slate-500 mr-2">Top Origin:</span>
-                                    <span className="text-slate-800 font-medium text-right max-w-[120px]">{data.topReceipt}</span>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-wide">Top Place of Receipt</span>
+                                    <span className="text-slate-800 font-semibold bg-slate-50 px-2 py-1 rounded border border-slate-100 mt-0.5 inline-block">{data.topReceipt}</span>
                                 </div>
                             </div>
                           </div>
@@ -189,6 +189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ shipments, selectedShipper
                   <Tooltip 
                     wrapperStyle={{fontSize: '12px'}} 
                     formatter={(value, name) => [`${value} TEU`, name]}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
                   />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '10px'}}/>
                 </PieChart>
@@ -199,7 +200,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ shipments, selectedShipper
 
         {/* Report 4: Trend */}
         <Card title="Shipment Volume Trend" subtitle="Monthly TEU volume over time" className="lg:col-span-2">
-          <div className="h-72 w-full">
+          <div className="h-72 w-full" style={{ minWidth: 0, minHeight: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />

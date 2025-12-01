@@ -7,7 +7,16 @@ interface TradeLaneAnalysisProps {
 }
 
 export const TradeLaneAnalysis: React.FC<TradeLaneAnalysisProps> = ({ shipments }) => {
-  const [localDateRange, setLocalDateRange] = useState<DateRange>({ from: '2023-01-01', to: '2024-12-31' });
+  const [localDateRange, setLocalDateRange] = useState<DateRange>(() => {
+    const today = new Date();
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(today.getDate() - 60);
+    return {
+      from: sixtyDaysAgo.toISOString().split('T')[0],
+      to: today.toISOString().split('T')[0]
+    };
+  });
+
   const [selectedOrigins, setSelectedOrigins] = useState<string[]>([]);
   const [selectedDestinations, setSelectedDestinations] = useState<string[]>([]);
   const [generated, setGenerated] = useState(false);

@@ -96,31 +96,48 @@ export const getCarrierStats = (data: Shipment[]) => {
 
   data.forEach(s => {
     // VOCC Aggregation
-    if (!voccMap.has(s.voccName)) {
-      voccMap.set(s.voccName, { teu: 0, code: s.voccCode, name: s.voccName });
+    // Use Code as key if available to distinguish, otherwise name
+    const voccKey = s.voccCode || s.voccName;
+    if (voccKey) {
+        if (!voccMap.has(voccKey)) {
+        voccMap.set(voccKey, { teu: 0, code: s.voccCode, name: s.voccName });
+        }
+        const v = voccMap.get(voccKey)!;
+        v.teu += s.teu;
+        // Keep name updated if previously missing
+        if (!v.name && s.voccName) v.name = s.voccName;
+        if (!v.code && s.voccCode) v.code = s.voccCode;
     }
-    const v = voccMap.get(s.voccName)!;
-    v.teu += s.teu;
 
     // NVOCC Aggregation
-    if (!nvoccMap.has(s.nvoccName)) {
-      nvoccMap.set(s.nvoccName, { teu: 0, portFreq: new Map(), receiptFreq: new Map() });
+    if (s.nvoccName) {
+        if (!nvoccMap.has(s.nvoccName)) {
+        nvoccMap.set(s.nvoccName, { teu: 0, portFreq: new Map(), receiptFreq: new Map() });
+        }
+        const n = nvoccMap.get(s.nvoccName)!;
+        n.teu += s.teu;
+        
+        // Weight location frequency by TEU (or could be by count)
+        n.portFreq.set(s.usArrivalPort, (n.portFreq.get(s.usArrivalPort) || 0) + s.teu);
+        n.receiptFreq.set(s.placeOfReceipt, (n.receiptFreq.get(s.placeOfReceipt) || 0) + s.teu);
     }
-    const n = nvoccMap.get(s.nvoccName)!;
-    n.teu += s.teu;
-    
-    // Weight location frequency by TEU (or could be by count)
-    n.portFreq.set(s.usArrivalPort, (n.portFreq.get(s.usArrivalPort) || 0) + s.teu);
-    n.receiptFreq.set(s.placeOfReceipt, (n.receiptFreq.get(s.placeOfReceipt) || 0) + s.teu);
   });
 
   // Process VOCCs
   const topVOCC = Array.from(voccMap.values())
-    .map(item => ({
-      name: `${item.code} - ${item.name}`, // "VOCC Code - Name" format
-      teu: item.teu,
-      type: 'VOCC' as const
-    }))
+    .map(item => {
+        // Robust naming: "Code - Name" or just "Name" or just "Code"
+        let displayName = item.name || 'Unknown';
+        if (item.code && item.code !== item.name) {
+            displayName = `${item.code} - ${item.name}`;
+        }
+        
+        return {
+            name: displayName,
+            teu: item.teu,
+            type: 'VOCC' as const
+        };
+    })
     .sort((a, b) => b.teu - a.teu)
     .slice(0, 5);
 
