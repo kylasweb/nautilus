@@ -90,3 +90,11 @@ export interface AuthContextType {
   logout: () => void;
   hasPermission: (requiredRole: UserRole[]) => boolean;
 }
+
+// --- Google Drive Types ---
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+}

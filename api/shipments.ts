@@ -36,10 +36,54 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(shipments);
     } 
     
-    // Handle POST for data import if needed later
     else if (req.method === 'POST') {
-       // Logic for batch insert could go here
-       return res.status(501).json({ message: 'Not implemented yet' });
+       const shipments = req.body;
+       if (!Array.isArray(shipments)) {
+           return res.status(400).json({ error: 'Expected an array of shipments' });
+       }
+
+       const client = await (pool as any).connect();
+       try {
+           await (client as any).query('BEGIN');
+           
+           const query = `
+            INSERT INTO shipments (
+            house_bol_number, shipper_name, consignee_name, consignee_city, 
+            consignee_address, notify_party, place_of_receipt, us_arrival_port, 
+            arrival_date, teu, nvocc_name, vocc_code, vocc_name
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT (house_bol_number) DO UPDATE SET
+                shipper_name = EXCLUDED.shipper_name,
+                consignee_name = EXCLUDED.consignee_name,
+                consignee_city = EXCLUDED.consignee_city,
+                consignee_address = EXCLUDED.consignee_address,
+                notify_party = EXCLUDED.notify_party,
+                place_of_receipt = EXCLUDED.place_of_receipt,
+                us_arrival_port = EXCLUDED.us_arrival_port,
+                arrival_date = EXCLUDED.arrival_date,
+                teu = EXCLUDED.teu,
+                nvocc_name = EXCLUDED.nvocc_name,
+                vocc_code = EXCLUDED.vocc_code,
+                vocc_name = EXCLUDED.vocc_name
+           `;
+
+           for (const s of shipments) {
+               await (client as any).query(query, [
+                s.houseBolNumber, s.shipperName, s.consigneeName, s.consigneeCity,
+                s.consigneeAddress, s.notifyParty, s.placeOfReceipt, s.usArrivalPort,
+                s.arrivalDate, s.teu, s.nvoccName, s.voccCode, s.voccName
+               ]);
+           }
+
+           await (client as any).query('COMMIT');
+           return res.status(200).json({ message: 'Import successful', count: shipments.length });
+       } catch (e) {
+           await (client as any).query('ROLLBACK');
+           console.error('Batch import failed', e);
+           return res.status(500).json({ error: 'Batch import failed' });
+       } finally {
+           (client as any).release();
+       }
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

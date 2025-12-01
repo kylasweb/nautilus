@@ -119,13 +119,82 @@ const fetchContactsDirect = async (): Promise<ShipperContact[]> => {
   }
 };
 
-const seedDatabaseDirect = async () => {
-    // We can't import the seed logic directly because it resides in api/seed.ts
-    // In a browser context, we rely on the API to seed. 
-    // If the API is unreachable (dev mode without local server), we can't seed automatically.
-    // However, if we really need client-side seeding, we would need to duplicate the generator logic here.
-    // For now, we assume the API endpoint handles seeding.
-    return false; 
+const importShipmentsDirect = async (shipments: Shipment[]) => {
+    const pool = new (Pool as any)({ connectionString: NEON_DB_URL });
+    try {
+        const query = `
+            INSERT INTO shipments (
+            house_bol_number, shipper_name, consignee_name, consignee_city, 
+            consignee_address, notify_party, place_of_receipt, us_arrival_port, 
+            arrival_date, teu, nvocc_name, vocc_code, vocc_name
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT (house_bol_number) DO UPDATE SET
+                shipper_name = EXCLUDED.shipper_name,
+                consignee_name = EXCLUDED.consignee_name,
+                consignee_city = EXCLUDED.consignee_city,
+                consignee_address = EXCLUDED.consignee_address,
+                notify_party = EXCLUDED.notify_party,
+                place_of_receipt = EXCLUDED.place_of_receipt,
+                us_arrival_port = EXCLUDED.us_arrival_port,
+                arrival_date = EXCLUDED.arrival_date,
+                teu = EXCLUDED.teu,
+                nvocc_name = EXCLUDED.nvocc_name,
+                vocc_code = EXCLUDED.vocc_code,
+                vocc_name = EXCLUDED.vocc_name
+        `;
+        
+        // Parallel execution for preview speed, or sequential to avoid connection limits
+        // Using Promise.all for a chunk might be better but for demo direct loop is robust
+        for (const s of shipments) {
+             await (pool as any).query(query, [
+                s.houseBolNumber, s.shipperName, s.consigneeName, s.consigneeCity,
+                s.consigneeAddress, s.notifyParty, s.placeOfReceipt, s.usArrivalPort,
+                s.arrivalDate, s.teu, s.nvoccName, s.voccCode, s.voccName
+             ]);
+        }
+        return true;
+    } finally {
+        await (pool as any).end();
+    }
+};
+
+const importContactsDirect = async (contacts: ShipperContact[]) => {
+    const pool = new (Pool as any)({ connectionString: NEON_DB_URL });
+    try {
+         const query = `
+            INSERT INTO shipper_contacts (
+            shipper_name, email, contact_number, address, city, latitude, longitude,
+            pan_number, cin_number, customer_type, company_size, contact_person_name, designation, last_updated
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+            ON CONFLICT (shipper_name) DO UPDATE SET
+            email = COALESCE(EXCLUDED.email, shipper_contacts.email),
+            contact_number = COALESCE(EXCLUDED.contact_number, shipper_contacts.contact_number),
+            address = COALESCE(EXCLUDED.address, shipper_contacts.address),
+            city = COALESCE(EXCLUDED.city, shipper_contacts.city),
+            latitude = COALESCE(EXCLUDED.latitude, shipper_contacts.latitude),
+            longitude = COALESCE(EXCLUDED.longitude, shipper_contacts.longitude),
+            pan_number = COALESCE(EXCLUDED.pan_number, shipper_contacts.pan_number),
+            cin_number = COALESCE(EXCLUDED.cin_number, shipper_contacts.cin_number),
+            customer_type = COALESCE(EXCLUDED.customer_type, shipper_contacts.customer_type),
+            company_size = COALESCE(EXCLUDED.company_size, shipper_contacts.company_size),
+            contact_person_name = COALESCE(EXCLUDED.contact_person_name, shipper_contacts.contact_person_name),
+            designation = COALESCE(EXCLUDED.designation, shipper_contacts.designation),
+            last_updated = NOW()
+        `;
+        
+        for (const c of contacts) {
+             await (pool as any).query(query, [
+                c.shipperName, c.email || null, c.contactNumber || null, 
+                c.address || null, c.city || null, c.latitude || null, c.longitude || null,
+                c.panNumber || null, c.cinNumber || null,
+                c.customerType || null, c.companySize || null, c.contactPersonName || null, 
+                c.designation || null
+             ]);
+        }
+        return true;
+    } finally {
+        await (pool as any).end();
+    }
 };
 
 // --- Exported Functions ---
@@ -176,6 +245,34 @@ export const fetchContacts = async (): Promise<ShipperContact[]> => {
         return [];
     }
   }
+};
+
+export const importShipments = async (shipments: Shipment[]) => {
+    try {
+        await handleResponse(await fetch('/api/shipments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(shipments)
+        }));
+        return true;
+    } catch (apiErr) {
+        console.warn("API Import failed, falling back to direct DB");
+        return await importShipmentsDirect(shipments);
+    }
+};
+
+export const importContacts = async (contacts: ShipperContact[]) => {
+    try {
+        await handleResponse(await fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(contacts)
+        }));
+        return true;
+    } catch (apiErr) {
+        console.warn("API Contact Import failed, falling back to direct DB");
+        return await importContactsDirect(contacts);
+    }
 };
 
 export const seedDatabase = async () => {

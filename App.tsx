@@ -6,7 +6,7 @@ import {
 import { 
   getUniqueShippers 
 } from './services/data';
-import { fetchShipments, fetchContacts, seedDatabase } from './services/db';
+import { fetchShipments, fetchContacts, seedDatabase, importShipments, importContacts } from './services/db';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Dashboard } from './components/Dashboard';
 import { TradeLaneAnalysis } from './components/TradeLaneAnalysis';
@@ -92,8 +92,20 @@ const MainApp: React.FC = () => {
     setIsDropdownOpen(false);
   };
 
-  const handleDataImport = (newBatch: Shipment[]) => {
-    setShipments(prev => [...prev, ...newBatch]);
+  const handleDataImport = async (newBatch: Shipment[]) => {
+    setIsLoading(true);
+    
+    // 1. Save Shipments to DB
+    try {
+        await importShipments(newBatch);
+        setShipments(prev => [...prev, ...newBatch]);
+    } catch (e) {
+        alert("Failed to save shipments to database.");
+        setIsLoading(false);
+        return;
+    }
+
+    // 2. Identify and Save New Contacts
     const existingShipperNames = new Set(contacts.map(c => c.shipperName));
     const newContacts: ShipperContact[] = [];
 
@@ -116,13 +128,27 @@ const MainApp: React.FC = () => {
     });
 
     if (newContacts.length > 0) {
-      setContacts(prev => [...prev, ...newContacts]);
-      alert(`${newContacts.length} new shippers detected. Please update their contact info.`);
+      try {
+          await importContacts(newContacts);
+          setContacts(prev => [...prev, ...newContacts]);
+          alert(`${newBatch.length} shipments imported. ${newContacts.length} new shippers detected.`);
+      } catch (e) {
+          alert("Shipments saved, but failed to save new contacts to database.");
+      }
+    } else {
+        alert(`${newBatch.length} shipments imported successfully.`);
     }
+    
+    setIsLoading(false);
   };
 
-  const handleContactUpdate = (updatedContact: ShipperContact) => {
-    setContacts(prev => prev.map(c => c.shipperName === updatedContact.shipperName ? updatedContact : c));
+  const handleContactUpdate = async (updatedContact: ShipperContact) => {
+    try {
+        await importContacts([updatedContact]);
+        setContacts(prev => prev.map(c => c.shipperName === updatedContact.shipperName ? updatedContact : c));
+    } catch (e) {
+        alert("Failed to update contact in database");
+    }
   };
 
   return (
